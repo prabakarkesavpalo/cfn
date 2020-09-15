@@ -1,15 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy a service on AWS Fargate, hosted in two public subnets and accessible via a public load balancer.
+Description: Deploy a service on AWS Fargate, hosted in subnets and accessible via a public load balancer.
 Parameters:
   StackName:
     Type: String
     Description: The name of the networking stack that
       these resources are put into.
-    Default: sre-team-hdb-test-ecs-network
+    Default: ecs-hdb-bl22-ksql-service-dev
   ServiceName:
     Type: String
-    Description: A human-readable name for the service.
-    Default: sre-hdb-ecs-service-nginx
+    Description: A service for ksql dev on ECS.
+    Default: ecs-hdb-bl22-devizapp-021ksql-service
   HealthCheckPath:
     Type: String
     Default: /health
@@ -21,10 +21,10 @@ Parameters:
   ImageUrl:
     Type: String
     Description: The url of a docker image that will handle incoming traffic.
-    Default: 822063991960.dkr.ecr.ap-southeast-1.amazonaws.com/confluentinc/ksqldb-server:0.9.0
+    Default: 104504617570.dkr.ecr.ap-southeast-1.amazonaws.com/marvel/ksqldb-dev:0.9.0
   ContainerPort:
     Type: Number
-    Default: 80
+    Default: 8089
     Description: The port number the application inside the docker container
       is binding to.
   ContainerCpu:
@@ -46,7 +46,7 @@ Parameters:
     Description: How many copies of the service task to run.
   RoleArn:
     Type: String     # optional
-    Default: "arn:aws:iam::822063991960:role/ecsTaskExecutionRole"
+    Default: "arn:aws:iam::104504617570:role/ecsTaskExecutionRole"
 
 Resources:
   TaskDefinition:
@@ -60,7 +60,7 @@ Resources:
         - FARGATE
       ExecutionRoleArn: !Ref 'RoleArn'
       ContainerDefinitions:
-        - Name: !Ref 'ServiceName'
+        - Name: 'ksqldb-server' 
           Cpu: !Ref 'ContainerCpu'
           Memory: !Ref 'ContainerMemory'
           Image: !Ref 'ImageUrl'
@@ -70,7 +70,7 @@ Resources:
             - Name: KSQL_LISTENERS
               Value: 'http://0.0.0.0:8089'
             - Name: KSQL_BOOTSTRAP_SERVERS
-              Value: '10.195.237.206:9093'
+              Value: '10.195.237.206:9092'
             - Name: KSQL_KSQL_INTERNAL_TOPIC_REPLICAS
               Value: '1'
             - Name: KSQL_KSQL_SINK_REPLICAS
@@ -90,6 +90,7 @@ Resources:
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
-              awslogs-group: !Ref 'ServiceName'
+              awslogs-group: '/ecs/dev/ksql'
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: !Ref 'ServiceName'
+              awslogs-stream-prefix: 'ecs'
+              
