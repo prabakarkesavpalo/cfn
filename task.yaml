@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy a service on AWS Fargate, hosted in two public subnets and accessible via a public load balancer.
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of the networking stack that
+      these resources are put into.
+    Default: sre-team-hdb-test-ecs-network
+  ServiceName:
+    Type: String
+    Description: A human-readable name for the service.
+    Default: sre-hdb-ecs-service-nginx
+  HealthCheckPath:
+    Type: String
+    Default: /health
+    Description: Path to perform the healthcheck on each instance.
+  HealthCheckIntervalSeconds:
+    Type: Number
+    Default: 6
+    Description: Number of seconds to wait between each health check.
+  ImageUrl:
+    Type: String
+    Description: The url of a docker image that will handle incoming traffic.
+    Default: 822063991960.dkr.ecr.ap-southeast-1.amazonaws.com/confluentinc/ksqldb-server:0.9.0
+  ContainerPort:
+    Type: Number
+    Default: 80
+    Description: The port number the application inside the docker container
+      is binding to.
+  ContainerCpu:
+    Type: Number
+    Default: 256
+    Description: How much CPU to give the container. 1024 is 1 CPU.
+  ContainerMemory:
+    Type: Number
+    Default: 512
+    Description: How much memory in megabytes to give the container.
+  Path:
+    Type: String
+    Default: "*"
+    Description: A path on the public load balancer that this service
+      should be connected to.
+  DesiredCount:
+    Type: Number
+    Default: 2
+    Description: How many copies of the service task to run.
+  RoleArn:
+    Type: String     # optional
+    Default: "arn:aws:iam::822063991960:role/ecsTaskExecutionRole"
+
+Resources:
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref 'ServiceName'
+      Cpu: !Ref 'ContainerCpu'
+      Memory: !Ref 'ContainerMemory'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref 'RoleArn'
+      ContainerDefinitions:
+        - Name: !Ref 'ServiceName'
+          Cpu: !Ref 'ContainerCpu'
+          Memory: !Ref 'ContainerMemory'
+          Image: !Ref 'ImageUrl'
+          PortMappings:
+            - ContainerPort: !Ref 'ContainerPort'
+          Environment:
+            - Name: KSQL_LISTENERS
+              Value: 'http://0.0.0.0:8089'
+            - Name: KSQL_BOOTSTRAP_SERVERS
+              Value: '10.195.237.206:9093'
+            - Name: KSQL_KSQL_INTERNAL_TOPIC_REPLICAS
+              Value: '1'
+            - Name: KSQL_KSQL_SINK_REPLICAS
+              Value: '1'
+            - Name: KSQL_KSQL_STREAMS_REPLICATION_FACTOR
+              Value: '1'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_REPLICATION_FACTOR
+              Value: '1'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE
+              Value: 'true'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE
+              Value: 'true'
+            - Name: KSQL_KSQL_SCHEMA_REGISTRY_URL
+              Value: 'http://ip-10-195-237-206.ap-southeast-1.compute.internal:8084'
+            - Name: KSQL_KSQL_STREAMS_AUTO_OFFSET_RESET
+              Value: 'earliest'
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref 'ServiceName'
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref 'ServiceName'
