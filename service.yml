@@ -89,7 +89,7 @@ Resources:
             - Name: KSQL_LISTENERS
               Value: 'http://0.0.0.0:8089'
             - Name: KSQL_BOOTSTRAP_SERVERS
-              Value: 'bifrostkbd01.marvel.gccaws.hdb.gov.sg:9092'
+              Value: '10.195.237.206:9092'
             - Name: KSQL_KSQL_INTERNAL_TOPIC_REPLICAS
               Value: '1'
             - Name: KSQL_KSQL_SINK_REPLICAS
@@ -103,7 +103,7 @@ Resources:
             - Name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE
               Value: 'true'
             - Name: KSQL_KSQL_SCHEMA_REGISTRY_URL
-              Value: 'http://bifrostsrd01.marvel.gccaws.hdb.gov.sg:8084'
+              Value: 'http://10.195.237.206:8084'
             - Name: KSQL_KSQL_STREAMS_AUTO_OFFSET_RESET
               Value: 'earliest'        
           LogConfiguration:
