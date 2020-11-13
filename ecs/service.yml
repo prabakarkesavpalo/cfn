@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy a service on AWS Fargate, hosted in subnets and accessible via a public load balancer.
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of the networking stack that
+      these resources are put into.
+    Default: ecs-hdb-bl22-ksql-service-upgrade-dev
+  SvcName:
+    Type: String
+    Description: A service for ksql dev on ECS.
+    Default: ecs-hdb-bl22-devizapp-021ksql-service
+  ClusterName:
+    Type: String
+    Description: A cluster for ksql dev on ECS.
+    Default: marvel-dev
+  HealthCheckPath:
+    Type: String
+    Default: /health
+    Description: Path to perform the healthcheck on each instance.
+  HealthCheckIntervalSeconds:
+    Type: Number
+    Default: 6
+    Description: Number of seconds to wait between each health check.
+  ImageUrl:
+    Type: String
+    Description: The url of a docker image that will handle incoming traffic.
+    Default: 104504617570.dkr.ecr.ap-southeast-1.amazonaws.com/marvel/ksqldb-dev:0.9.0
+  ContainerPort:
+    Type: Number
+    Default: 8089
+    Description: The port number the application inside the docker container
+      is binding to.
+  ContainerCpu:
+    Type: Number
+    Default: 256
+    Description: How much CPU to give the container. 1024 is 1 CPU.
+  ContainerMemory:
+    Type: Number
+    Default: 512
+    Description: How much memory in megabytes to give the container.
+  Path:
+    Type: String
+    Default: "*"
+    Description: A path on the public load balancer that this service
+      should be connected to.
+  DesiredCount:
+    Type: Number
+    Default: 2
+    Description: How many copies of the service task to run.
+  RoleArn:
+    Type: String     # optional
+    Default: "arn:aws:iam::104504617570:role/ecsTaskExecutionRole"
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-06155530f17acaf6b
+  PublicSubnetOne:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-0cd5fa43255b2c661
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-09cdca6ecc6603c99
+  PublicSubnetThree:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-00f6c8c387f78fed6
+  SecGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-05875857591a5a591
+
+Resources:
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref 'SvcName'
+      Cpu: !Ref 'ContainerCpu'
+      Memory: !Ref 'ContainerMemory'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref 'RoleArn'
+      ContainerDefinitions:
+        - Name: 'ksqldb-server' 
+          Cpu: !Ref 'ContainerCpu'
+          Memory: !Ref 'ContainerMemory'
+          Image: !Ref 'ImageUrl'
+          PortMappings:
+            - ContainerPort: !Ref 'ContainerPort'
+          Environment:
+            - Name: KSQL_LISTENERS
+              Value: 'http://0.0.0.0:8089'
+            - Name: KSQL_BOOTSTRAP_SERVERS
+              Value: '10.195.237.206:9092'
+            - Name: KSQL_KSQL_INTERNAL_TOPIC_REPLICAS
+              Value: '1'
+            - Name: KSQL_KSQL_SINK_REPLICAS
+              Value: '1'
+            - Name: KSQL_KSQL_STREAMS_REPLICATION_FACTOR
+              Value: '1'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_REPLICATION_FACTOR
+              Value: '1'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE
+              Value: 'true'
+            - Name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE
+              Value: 'true'
+            - Name: KSQL_KSQL_SCHEMA_REGISTRY_URL
+              Value: 'http://10.195.237.206:8084'
+            - Name: KSQL_KSQL_STREAMS_AUTO_OFFSET_RESET
+              Value: 'earliest'        
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: '/ecs/dev/ksql'
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: 'ecs'
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Ref 'SvcName'
+      Cluster: !Ref 'ClusterName'
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: !Ref 'DesiredCount'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups: 
+            - !Ref SecGroup
+          Subnets: 
+            - !Ref 'PublicSubnetOne'
+            - !Ref 'PublicSubnetTwo'
+      TaskDefinition: !Ref 'TaskDefinition'
+
+              

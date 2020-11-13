@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Provisions and deploys AWS Elasticsearch Service (ES) over multiple
+  availability zones in a new AWS Virtual Private Cloud (VPC), along with a
+  bastion server from which Elasticsearch can be accessed.
+Parameters:
+  ElasticsearchName:
+    Default: es-marvel-cfn-dev
+    Description: >-
+      The name of the AWS Elasticsearch Service deployment.
+    Type: String
+    ConstraintDescription: >-
+      Must be a valid AWS ES domain name prefix. The name must start with a
+      lowercase letter and must be between 3 and 28 characters. Valid characters
+      are a-z (lowercase only), 0-9, and - (hyphen).
+    AllowedPattern: '[a-z][a-z0-9\\-]+'
+
+  ElasticsearchVersion:
+    Default: 7.8
+    Type: String
+    ConstraintDescription: >-
+      Must be an allowed AWS ES version (Major.Minor)
+    AllowedValues:
+      - 7.8
+      - 7.7 
+      - 7.4
+      - 7.1
+
+  ElasticsearchMasterInstanceType:
+    Description: >-
+      Instance type for master nodes.
+    Type: String
+    Default: r5.large.elasticsearch
+    AllowedValues:
+      - r5.large.elasticsearch
+      - r5.xlarge.elasticsearch
+      - r5.2xlarge.elasticsearch
+      - r5.4xlarge.elasticsearch
+      - r5.12xlarge.elasticsearch
+
+  ElasticsearchDataInstanceType:
+    Description: >-
+      Instance type for data nodes.
+    Type: String
+    Default: r5.large.elasticsearch
+    AllowedValues:
+      - r5.large.elasticsearch
+      - r5.xlarge.elasticsearch
+      - r5.2xlarge.elasticsearch
+      - r5.4xlarge.elasticsearch
+
+  NumberOfMasterNodes:
+    Description: >-
+      How many dedicated master nodes you want to have. 3 is recommended.
+    Type: Number
+    Default: 1
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+  NumberOfDataNodes:
+    Description: >-
+      How many data nodes you want to have. Multiples of your number of
+      availability zones (2) is recommended.
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 20
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  SecGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      ElasticsearchVersion: !Ref ElasticsearchVersion
+      DomainName: !Ref ElasticsearchName
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: gp2
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: false
+        #DedicatedMasterType: !Ref ElasticsearchMasterInstanceType
+        #DedicatedMasterCount: !Ref NumberOfDataNodes
+        InstanceCount: !Ref NumberOfDataNodes
+        InstanceType: !Ref ElasticsearchDataInstanceType
+        #ZoneAwarenessEnabled: true
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: 'true'
+        indices.fielddata.cache.size: '40'
+        indices.query.bool.max_clause_count: '1024'
+      EncryptionAtRestOptions: 
+        Enabled: true
+      NodeToNodeEncryptionOptions: 
+        Enabled: true
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: 0
+      VPCOptions:
+        SubnetIds:
+          - !Ref PublicSubnet1
+        SecurityGroupIds:
+          - !Ref SecGroup
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: es:*
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchName}/*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-EsDomain'

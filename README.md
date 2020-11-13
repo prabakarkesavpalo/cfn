@@ -1,1 +1,3 @@
-# ecs
+# ecs template
+
+# elasticseach template
